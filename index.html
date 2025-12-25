@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Fox Runner: Nine-Tailed Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050510;
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; /* Critical for the sprite look */
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .menu-box {
+            background: rgba(12, 12, 25, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 40px 60px;
+            text-align: center;
+            color: #fff;
+            pointer-events: auto;
+            box-shadow: 
+                0 0 50px rgba(0, 0, 0, 0.8),
+                inset 0 0 20px rgba(0, 255, 255, 0.05);
+            max-width: 90%;
+            transition: opacity 0.3s ease;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(to bottom, #fff 0%, #aee 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 10px rgba(0, 255, 255, 0.3);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        h2 {
+            font-size: 18px;
+            color: #ff00de;
+            margin-bottom: 25px;
+            text-shadow: 0 0 8px rgba(255, 0, 222, 0.4);
+            letter-spacing: 4px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #889;
+            margin-bottom: 35px;
+            letter-spacing: 1px;
+            line-height: 1.6;
+            font-family: monospace;
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 15px 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .hud-item {
+            display: none; 
+        }
+
+        .hud-label {
+            font-size: 10px;
+            color: #ff00de;
+            display: block;
+            margin-bottom: 2px;
+            font-weight: 700;
+        }
+
+        .hud-value {
+            font-size: 24px;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: 6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-item" id="score-container">
+            <span class="hud-label">DISTANCE</span>
+            <span class="hud-value" id="score-val">0m</span>
+        </div>
+        <div class="hud-item" id="time-container" style="text-align: right;">
+            <span class="hud-label">SYSTEM TIME</span>
+            <span class="hud-value" id="time-val">12:00</span>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div class="menu-box" id="start-screen">
+            <h1>Neon Fox</h1>
+            <h2>Protocol: Nine-Tails</h2>
+            <p>Evolve. Adapt. Survive.<br>Reach 1500m to unlock Awakening.</p>
+            <button class="btn" id="start-btn">Connect</button>
+        </div>
+
+        <div class="menu-box" id="game-over-screen" style="display: none;">
+            <h1 style="color: #ff2a6d;">SIGNAL LOST</h1>
+            <p id="final-score">Distance: 0m</p>
+            <button class="btn" id="restart-btn">Reboot</button>
+        </div>
+    </div>
+
+    <script>
+        /** * DYNAMIC AUDIO ENGINE 2.0
+         * Features: Randomized patterns, chord progressions, and rhythmic variations.
+         */
+        const AudioEngine = {
+            ctx: null,
+            isPlaying: false,
+            bpm: 130,
+            nextNoteTime: 0,
+            tick: 0,
+            currentBar: 0,
+            
+            // Musical State
+            currentChordProgression: 0,
+            currentArpPattern: 0,
+            currentDrumPattern: 0,
+            
+            // Resources
+            reverbBuffer: null,
+
+            // Data
+            progressions: [
+                [43.65, 49.00, 55.00, 41.20], // F - G - Am - Em (Classic Trance)
+                [32.70, 36.71, 43.65, 49.00], // C - D - F - G (Uplifting)
+                [55.00, 43.65, 32.70, 49.00], // Am - F - C - G (Emotional)
+                [36.71, 41.20, 32.70, 55.00]  // D - Em - C - Am
+            ],
+
+            init() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.createReverb();
+            },
+
+            createReverb() {
+                // Procedural Reverb Impulse
+                const duration = 2.5;
+                const decay = 2.0;
+                const rate = this.ctx.sampleRate;
+                const length = rate * duration;
+                const impulse = this.ctx.createBuffer(2, length, rate);
+                const left = impulse.getChannelData(0);
+                const right = impulse.getChannelData(1);
+                for (let i = 0; i < length; i++) {
+                    const n = i / length;
+                    left[i] = (Math.random() * 2 - 1) * Math.pow(1 - n, decay);
+                    right[i] = (Math.random() * 2 - 1) * Math.pow(1 - n, decay);
+                }
+                this.reverbBuffer = impulse;
+            },
+
+            start() {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                this.isPlaying = true;
+                this.nextNoteTime = this.ctx.currentTime + 0.1;
+                this.scheduler();
+            },
+
+            stop() {
+                this.isPlaying = false;
+            },
+
+            randomizePatterns() {
+                // Change musical feel every 8 bars
+                this.currentChordProgression = Math.floor(Math.random() * this.progressions.length);
+                this.currentArpPattern = Math.floor(Math.random() * 3); // 3 variations
+                this.currentDrumPattern = Math.floor(Math.random() * 2);
+            },
+
+            scheduler() {
+                if (!this.isPlaying) return;
+                const scheduleAheadTime = 0.1;
+                while (this.nextNoteTime < this.ctx.currentTime + scheduleAheadTime) {
+                    this.playTick(this.nextNoteTime, this.tick);
+                    const secondsPer16th = (60.0 / this.bpm) / 4;
+                    this.nextNoteTime += secondsPer16th;
+                    this.tick++;
+                    if (this.tick % 16 === 0) {
+                        this.currentBar++;
+                        if (this.currentBar % 8 === 0) this.randomizePatterns();
+                    }
+                }
+                setTimeout(() => this.scheduler(), 25);
+            },
+
+            playTick(time, tick) {
+                const step = tick % 16;
+                const barInLoop = Math.floor(tick / 16) % 4; // 0-3
+
+                // 1. DRUMS
+                // Kick: Always 4-on-the-floor
+                if (step % 4 === 0) this.triggerKick(time);
+                
+                // Snare: Variation
+                if (this.currentDrumPattern === 0) {
+                    if (step % 8 === 4) this.triggerSnare(time);
+                } else {
+                    // Syncopated
+                    if (step === 4 || step === 12 || (barInLoop===3 && step===14)) this.triggerSnare(time);
+                }
+
+                // Hats: 16th notes
+                const hatVel = (step % 4 === 2) ? 0.3 : (step % 2 !== 0 ? 0.1 : 0.05);
+                this.triggerHat(time, hatVel);
+
+                // 2. BASS
+                // Uses current Chord Progression
+                const chords = this.progressions[this.currentChordProgression];
+                let rootFreq = chords[barInLoop];
+                
+                // Bass Pattern: Gallop or Offbeat
+                const isOffbeat = step % 4 === 2;
+                const isDownbeat = step % 4 === 0;
+                
+                // Simple sidechained bass logic
+                if (isOffbeat || (step%4===3 && Math.random()>0.5)) {
+                    // Octave jump sometimes
+                    const f = (Math.random() > 0.8) ? rootFreq * 2 : rootFreq;
+                    this.triggerBass(time, f);
+                }
+
+                // 3. ARPEGGIO / MELODY
+                // Plays on 16th notes
+                if (step % 2 === 0) {
+                    this.triggerArp(time, rootFreq, step, this.currentArpPattern);
+                }
+            },
+
+            triggerKick(time) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.setValueAtTime(120, time);
+                osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+                gain.gain.setValueAtTime(0.8, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + 0.5);
+            },
+
+            triggerSnare(time) {
+                const bufferSize = this.ctx.sampleRate * 0.2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 800;
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+                
+                // Reverb send
+                const revGain = this.ctx.createGain();
+                revGain.gain.value = 0.2;
+                const convolver = this.ctx.createConvolver();
+                convolver.buffer = this.reverbBuffer;
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                gain.connect(revGain);
+                revGain.connect(convolver);
+                convolver.connect(this.ctx.destination);
+                noise.start(time);
+            },
+
+            triggerHat(time, velocity) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(8000, time);
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass';
+                filter.frequency.value = 7000;
+                
+                gain.gain.setValueAtTime(velocity, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + 0.05);
+            },
+
+            triggerBass(time, freq) {
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, time);
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(100, time);
+                filter.frequency.exponentialRampToValueAtTime(600, time + 0.1);
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.5, time);
+                gain.gain.linearRampToValueAtTime(0, time + 0.2);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + 0.2);
+            },
+
+            triggerArp(time, rootFreq, step, patternType) {
+                const osc = this.ctx.createOscillator();
+                osc.type = 'triangle';
+                
+                // Scales relative to root
+                // 0 = root, 3/4 = third, 7 = fifth, 12 = octave
+                let interval = 0;
+                const idx = (step/2) % 4; // 0, 1, 2, 3
+                
+                if (patternType === 0) { // Up
+                    interval = [0, 3, 7, 12][idx]; 
+                } else if (patternType === 1) { // Down
+                    interval = [12, 7, 3, 0][idx];
+                } else { // Alternate
+                    interval = [0, 12, 7, 3][idx];
+                }
+
+                // Check for major/minor based on root (Simplified)
+                // Roughly mapping standard minor intervals
+                const freq = rootFreq * 4 * Math.pow(2, interval / 12);
+
+                osc.frequency.setValueAtTime(freq, time);
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.1, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+
+                // Delay
+                const delay = this.ctx.createDelay();
+                delay.delayTime.value = 0.23; // dotted 8th feel
+                const fbk = this.ctx.createGain();
+                fbk.gain.value = 0.4;
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                gain.connect(delay);
+                delay.connect(fbk);
+                fbk.connect(delay);
+                delay.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + 0.3);
+            }
+        };
+
+        /**
+         * GAME ENGINE
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Logical Resolution (Small for big pixels)
+        const GAME_WIDTH = 480; 
+        const GAME_HEIGHT = 270; 
+        
+        function resize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const targetAspect = GAME_WIDTH / GAME_HEIGHT;
+            let w, h;
+            if (aspect > targetAspect) {
+                h = window.innerHeight;
+                w = h * targetAspect;
+            } else {
+                w = window.innerWidth;
+                h = w / targetAspect;
+            }
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
+            canvas.style.marginTop = `${(window.innerHeight - h) / 2}px`;
+            canvas.style.marginLeft = `${(window.innerWidth - w) / 2}px`;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const state = {
+            isRunning: false,
+            speed: 3,
+            distance: 0,
+            frameCount: 0,
+            timeOfDay: 0,
+            gravity: 0.35,
+            floorY: 220,
+            skyColor: [0, 0, 0],
+            awakened: false // Nine-Tails Mode
+        };
+
+        const skyColors = {
+            day: [100, 200, 255],
+            sunset: [255, 100, 150],
+            night: [10, 10, 30],
+            sunrise: [255, 180, 80]
+        };
+
+        function lerpColor(c1, c2, t) {
+            return [
+                Math.round(c1[0] + (c2[0] - c1[0]) * t),
+                Math.round(c1[1] + (c2[1] - c1[1]) * t),
+                Math.round(c1[2] + (c2[2] - c1[2]) * t)
+            ];
+        }
+
+        function updateDayNight() {
+            // Cycle roughly every 60 seconds
+            state.timeOfDay = (state.frameCount % 3600) / 3600;
+            let color;
+            const t = state.timeOfDay;
+            if (t < 0.25) color = lerpColor(skyColors.day, skyColors.sunset, t * 4);
+            else if (t < 0.5) color = lerpColor(skyColors.sunset, skyColors.night, (t - 0.25) * 4);
+            else if (t < 0.75) color = lerpColor(skyColors.night, skyColors.sunrise, (t - 0.5) * 4);
+            else color = lerpColor(skyColors.sunrise, skyColors.day, (t - 0.75) * 4);
+            state.skyColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            
+            // UI Time
+            const totalMin = Math.floor(t * 24 * 60);
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            document.getElementById('time-val').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+        }
+
+        // --- ENTITIES ---
+
+        const player = {
+            x: 60,
+            y: 0,
+            w: 24, // Visual width of sprite block
+            h: 18,
+            vy: 0,
+            grounded: false,
+            jumpForce: -6.5,
+            
+            // Sprite Defs
+            colorBody: '#ff5722', // Vivid Orange
+            colorDark: '#bf360c', // Shadow
+            colorLight: '#ffccbc', // Highlight
+            colorWhite: '#ffffff',
+            
+            draw() {
+                const x = Math.round(this.x);
+                const y = Math.round(this.y);
+                const bob = state.isRunning ? Math.sin(state.frameCount * 0.4) * 1 : 0;
+                
+                // Helper to draw rect
+                const r = (dx, dy, w, h, c) => {
+                    ctx.fillStyle = c;
+                    ctx.fillRect(x + dx, y + dy + bob, w, h);
+                };
+
+                // Check Awakening
+                const isNineTails = state.awakened;
+
+                // --- TAILS ---
+                if (isNineTails) {
+                    // Mystical Nine Tails Fan
+                    for(let i=0; i<9; i++) {
+                        const angle = (i - 4) * 0.2; // Fan out
+                        const sway = Math.sin(state.frameCount * 0.1 + i) * 3;
+                        const tx = x - 5 + Math.cos(angle) * (-15);
+                        const ty = y + 8 + Math.sin(angle) * (15) + sway + bob;
+                        
+                        ctx.fillStyle = (i%2===0) ? this.colorBody : '#ffd180'; // Alternating gold/orange
+                        // Glow effect
+                        if (state.frameCount % 2 === 0) {
+                            ctx.shadowBlur = 10;
+                            ctx.shadowColor = '#ffab40';
+                        }
+                        
+                        ctx.beginPath();
+                        ctx.ellipse(tx, ty, 8, 3, angle, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        
+                        // White tip
+                        ctx.fillStyle = this.colorWhite;
+                        ctx.beginPath();
+                        ctx.ellipse(tx - 6, ty, 2, 2, angle, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else {
+                    // Normal Tail
+                    const tailWag = Math.cos(state.frameCount * 0.3) * 2;
+                    // Outer Tail
+                    ctx.fillStyle = this.colorBody;
+                    ctx.beginPath();
+                    ctx.ellipse(x - 6, y + 8 + bob + tailWag, 8, 4, -0.2, 0, Math.PI*2);
+                    ctx.fill();
+                    // Tip
+                    ctx.fillStyle = this.colorWhite;
+                    ctx.beginPath();
+                    ctx.ellipse(x - 10, y + 6 + bob + tailWag, 3, 3, -0.2, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                // --- LEGS (Animation) ---
+                const runCycle = Math.floor(state.frameCount / 5) % 4; // 0,1,2,3
+                // Back Left
+                if(runCycle !== 0) r(4, 13, 3, 5, '#222');
+                // Front Left
+                if(runCycle !== 2) r(16, 13, 3, 5, '#222');
+                
+                // --- BODY ---
+                r(2, 6, 16, 9, this.colorBody); // Main
+                r(4, 6, 12, 2, this.colorDark); // Top shadow/Spine
+                r(5, 11, 8, 4, this.colorWhite); // Belly fur
+
+                // Back Right Leg (Foreground)
+                if(runCycle === 0) r(6, 14, 3, 4, '#333');
+                if(runCycle === 2) r(18, 14, 3, 4, '#333');
+
+                // --- HEAD ---
+                const hx = 12; // Head offset X relative to sprite 0
+                const hy = -2; // Head offset Y
+                
+                // Ears
+                r(hx + 1, hy - 3, 3, 4, this.colorBody); // L Ear
+                r(hx + 7, hy - 3, 3, 4, this.colorBody); // R Ear
+                r(hx + 2, hy - 1, 1, 2, this.colorLight); // Inner Ear L
+                r(hx + 8, hy - 1, 1, 2, this.colorLight); // Inner Ear R
+                
+                // Head Shape
+                r(hx, hy, 12, 10, this.colorBody);
+                
+                // Cheeks / Fur
+                r(hx - 1, hy + 4, 1, 3, this.colorLight);
+                r(hx + 12, hy + 4, 1, 3, this.colorLight);
+                
+                // Snout
+                r(hx + 8, hy + 6, 4, 3, this.colorWhite);
+                r(hx + 11, hy + 6, 2, 2, '#111'); // Nose
+                
+                // Eyes
+                r(hx + 7, hy + 4, 2, 2, '#fff'); // Sclera
+                r(hx + 8, hy + 4, 1, 2, '#000'); // Pupil
+
+                // Scarf (Accessory)
+                if (state.awakened) {
+                     // Glowing Necklace instead
+                     r(hx + 3, hy + 9, 4, 2, '#00e5ff');
+                     ctx.shadowColor = '#00e5ff';
+                     ctx.shadowBlur = 5;
+                     ctx.fillRect(x + hx + 4, y + hy + 9 + bob, 2, 2);
+                     ctx.shadowBlur = 0;
+                } else {
+                     // Red Scarf
+                     r(hx + 2, hy + 9, 6, 2, '#d50000');
+                     // Trailing piece
+                     if (state.isRunning) {
+                         const scarfWag = Math.sin(state.frameCount * 0.4) * 2;
+                         ctx.fillStyle = '#d50000';
+                         ctx.fillRect(x + hx - 2, y + hy + 8 + bob + scarfWag, 4, 2);
+                     }
+                }
+            },
+            
+            update() {
+                this.vy += state.gravity;
+                this.y += this.vy;
+                if (this.y + this.h >= state.floorY) {
+                    this.y = state.floorY - this.h;
+                    this.vy = 0;
+                    this.grounded = true;
+                } else {
+                    this.grounded = false;
+                }
+            },
+            
+            jump() {
+                if (this.grounded) {
+                    this.vy = this.jumpForce;
+                    this.grounded = false;
+                    createParticles(this.x + 10, this.y + 18, 5, '#fff');
+                }
+            }
+        };
+
+        // SCENERY
+        const scenery = {
+            mountains: [],
+            trees: [],
+            
+            init() {
+                this.mountains = [];
+                this.trees = [];
+                // Fill mountains
+                let mx = 0;
+                while(mx < GAME_WIDTH * 2) {
+                    const w = 100 + Math.random() * 100;
+                    this.mountains.push({
+                        x: mx, w: w, h: 60 + Math.random() * 80,
+                        c: '#1a1a40', speed: 0.1
+                    });
+                    mx += w * 0.7;
+                }
+                // Fill Trees
+                for(let i=0; i<20; i++) {
+                    this.trees.push(this.createTree(Math.random() * GAME_WIDTH));
+                }
+            },
+            
+            createTree(x) {
+                return {
+                    x: x, 
+                    y: state.floorY,
+                    w: 12 + Math.random()*8,
+                    h: 20 + Math.random()*30,
+                    speed: 0.5 + Math.random() * 0.3,
+                    c: (Math.random() > 0.5) ? '#0d47a1' : '#1565c0'
+                };
+            },
+
+            update() {
+                // Mountains
+                this.mountains.forEach(m => {
+                    m.x -= state.speed * m.speed;
+                    if(m.x + m.w < -100) {
+                        m.x = GAME_WIDTH + 100;
+                        m.h = 60 + Math.random() * 80;
+                    }
+                    
+                    // Draw
+                    ctx.fillStyle = (state.timeOfDay > 0.3 && state.timeOfDay < 0.7) ? '#050510' : m.c;
+                    ctx.beginPath();
+                    ctx.moveTo(m.x, state.floorY);
+                    ctx.lineTo(m.x + m.w/2, state.floorY - m.h);
+                    ctx.lineTo(m.x + m.w, state.floorY);
+                    ctx.fill();
+                    
+                    // Snow cap
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                    ctx.beginPath();
+                    ctx.moveTo(m.x + m.w*0.35, state.floorY - m.h*0.7);
+                    ctx.lineTo(m.x + m.w/2, state.floorY - m.h);
+                    ctx.lineTo(m.x + m.w*0.65, state.floorY - m.h*0.7);
+                    ctx.lineTo(m.x + m.w*0.5, state.floorY - m.h*0.8);
+                    ctx.fill();
+                });
+
+                // Trees
+                this.trees.sort((a,b) => a.speed - b.speed);
+                this.trees.forEach(t => {
+                    t.x -= state.speed * t.speed;
+                    if(t.x + t.w < -20) {
+                        Object.assign(t, this.createTree(GAME_WIDTH + Math.random()*50));
+                    }
+                    
+                    ctx.fillStyle = (state.timeOfDay > 0.3 && state.timeOfDay < 0.7) ? '#000' : t.c;
+                    // Pixelated Tree shape (Triangle + Trunk)
+                    // Trunk
+                    ctx.fillRect(t.x + t.w/2 - 2, t.y - 8, 4, 8);
+                    // Leaves (Steps)
+                    ctx.beginPath();
+                    ctx.moveTo(t.x, t.y - 6);
+                    ctx.lineTo(t.x + t.w/2, t.y - t.h);
+                    ctx.lineTo(t.x + t.w, t.y - 6);
+                    ctx.fill();
+                });
+            }
+        };
+
+        // OBSTACLES
+        let obstacles = [];
+        let nextSpawn = 0;
+
+        function spawnObstacle() {
+            // Gap logic
+            const minGap = 150 + (state.speed * 15);
+            let obs = { x: GAME_WIDTH + 20, y: 0, w: 0, h: 0, type: 0 };
+            
+            if (Math.random() < 0.65) {
+                // Ground: Spikes / Blocks
+                obs.w = 16 + Math.random()*8;
+                obs.h = 16 + Math.random()*16;
+                obs.y = state.floorY - obs.h;
+                obs.type = 0; // Block
+            } else {
+                // Air: Drone
+                obs.w = 24;
+                obs.h = 10;
+                obs.y = state.floorY - 45; // Jump height
+                obs.type = 1; // Fly
+            }
+            obstacles.push(obs);
+            nextSpawn = state.distance + minGap + Math.random() * 200;
+        }
+
+        function updateObstacles() {
+            if (state.distance > nextSpawn) spawnObstacle();
+
+            for(let i=obstacles.length-1; i>=0; i--) {
+                const o = obstacles[i];
+                o.x -= state.speed;
+                
+                // Draw
+                ctx.fillStyle = '#101010';
+                ctx.fillRect(o.x, o.y, o.w, o.h);
+                
+                // Pixel Detail
+                if(o.type === 0) {
+                    // Neon Block
+                    ctx.strokeStyle = '#00e5ff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(o.x+2, o.y+2, o.w-4, o.h-4);
+                    // Inner pattern
+                    ctx.fillStyle = '#00e5ff';
+                    ctx.fillRect(o.x + 4, o.y + 4, 4, 4);
+                } else {
+                    // Drone
+                    ctx.fillStyle = '#d50000';
+                    ctx.fillRect(o.x + 4, o.y + 2, o.w - 8, 6);
+                    // Light blink
+                    if (Math.floor(state.frameCount/10)%2===0) {
+                        ctx.fillStyle = '#ff1744';
+                        ctx.fillRect(o.x + 8, o.y + 3, 4, 4);
+                    }
+                }
+
+                // Collision (Forgiving)
+                const m = 6;
+                if (player.x + m < o.x + o.w - m &&
+                    player.x + player.w - m > o.x + m &&
+                    player.y + m < o.y + o.h - m &&
+                    player.y + player.h - m > o.y + m) {
+                    gameOver();
+                }
+
+                if (o.x + o.w < -50) obstacles.splice(i, 1);
+            }
+        }
+
+        // PARTICLES & SNOW
+        let particles = [];
+        const snow = [];
+        
+        function initFX() {
+            snow.length = 0;
+            for(let i=0; i<100; i++) {
+                snow.push({x: Math.random()*GAME_WIDTH, y: Math.random()*GAME_HEIGHT, s: Math.random()+0.5});
+            }
+        }
+        
+        function createParticles(x, y, n, c) {
+            for(let i=0; i<n; i++) particles.push({x, y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 1, c});
+        }
+        
+        function updateFX() {
+            // Snow
+            ctx.fillStyle = '#fff';
+            snow.forEach(s => {
+                s.x -= state.speed * 0.2 + 0.5;
+                s.y += s.s;
+                if(s.y > GAME_HEIGHT) s.y = -5;
+                if(s.x < -5) s.x = GAME_WIDTH;
+                ctx.globalAlpha = 0.5 * s.s;
+                ctx.fillRect(s.x, s.y, s.s, s.s);
+            });
+            ctx.globalAlpha = 1;
+
+            // Particles
+            for(let i=particles.length-1; i>=0; i--) {
+                const p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                if(p.life <= 0) particles.splice(i,1);
+                else {
+                    ctx.fillStyle = p.c;
+                    ctx.globalAlpha = p.life;
+                    ctx.fillRect(p.x, p.y, 2, 2);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // --- MAIN LOOP ---
+
+        function loop() {
+            if (!state.isRunning) return;
+            requestAnimationFrame(loop);
+            
+            state.frameCount++;
+            state.distance += state.speed;
+            
+            // Awakening Logic (Nine Tails)
+            if (!state.awakened && state.distance > 15000) { // 1500m (div by 10 in UI)
+                state.awakened = true;
+                createParticles(player.x, player.y, 50, '#00e5ff');
+                // Brief flash
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0,0,GAME_WIDTH, GAME_HEIGHT);
+            }
+
+            updateDayNight();
+            player.update();
+            
+            // Drawing
+            
+            // 1. Sky
+            ctx.fillStyle = state.skyColor;
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            
+            // 2. Sun/Moon/Stars
+            if(state.timeOfDay > 0.25 && state.timeOfDay < 0.75) {
+                // Stars
+                ctx.fillStyle = '#fff';
+                for(let i=0; i<30; i++) {
+                     if(Math.random()>0.9) ctx.fillRect(Math.random()*GAME_WIDTH, Math.random()*GAME_HEIGHT*0.6, 1, 1);
+                }
+            } else {
+                // Sun
+                if (state.timeOfDay < 0.25 || state.timeOfDay > 0.75) {
+                    const sunY = 150 + (Math.sin(state.timeOfDay * Math.PI * 2) * 100);
+                    const g = ctx.createLinearGradient(0,0,0,GAME_HEIGHT);
+                    g.addColorStop(0, '#ffeb3b'); g.addColorStop(1, '#ff00de');
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(GAME_WIDTH*0.7, 120, 30, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+            
+            // 3. Scenery
+            scenery.update();
+            
+            // 4. Ground
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, state.floorY, GAME_WIDTH, GAME_HEIGHT-state.floorY);
+            // Grid
+            ctx.strokeStyle = state.awakened ? '#00e5ff' : '#ff00de';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            const gx = -(state.distance % 40);
+            for(let i=0; i<GAME_WIDTH/40 + 2; i++) {
+                ctx.moveTo(gx + i*40 + (i*10), state.floorY);
+                ctx.lineTo(gx + i*40 - 200, GAME_HEIGHT);
+            }
+            // Horizon lines
+            const gy = (state.distance % 20);
+            for(let i=0; i<5; i++) {
+                const y = state.floorY + (i*10) + gy/2; // Parallax-ish
+                if (y < GAME_HEIGHT) {
+                    ctx.moveTo(0, y); ctx.lineTo(GAME_WIDTH, y);
+                }
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            // 5. Game
+            updateObstacles();
+            player.draw();
+            updateFX();
+
+            // UI
+            document.getElementById('score-val').innerText = Math.floor(state.distance/10) + "m";
+            
+            // Difficulty
+            if (state.frameCount % 500 === 0 && state.speed < 8) state.speed += 0.2;
+        }
+
+        function startGame() {
+            state.isRunning = true;
+            state.distance = 0;
+            state.speed = 4;
+            state.frameCount = 3000;
+            state.awakened = false;
+            
+            obstacles = [];
+            particles = [];
+            scenery.init();
+            initFX();
+            
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.querySelectorAll('.hud-item').forEach(el => el.style.display = 'block');
+            
+            AudioEngine.start();
+            loop();
+        }
+
+        function gameOver() {
+            state.isRunning = false;
+            AudioEngine.stop();
+            document.getElementById('game-over-screen').style.display = 'block';
+            document.getElementById('final-score').innerText = "Run Terminated: " + Math.floor(state.distance/10) + "m";
+            document.getElementById('ui-layer').style.pointerEvents = 'auto';
+        }
+
+        const handleInput = (e) => {
+            if ((e.type === 'keydown' && e.code === 'Space') || e.type === 'mousedown' || e.type === 'touchstart') {
+                if (e.type === 'touchstart') e.preventDefault();
+                if (state.isRunning) player.jump();
+            }
+        };
+
+        window.addEventListener('keydown', handleInput);
+        window.addEventListener('mousedown', handleInput);
+        window.addEventListener('touchstart', handleInput, {passive: false});
+
+        document.getElementById('start-btn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+        document.getElementById('restart-btn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+
+    </script>
+</body>
+</html>
